@@ -3,5 +3,5 @@ package com.kob.backend.service.user.bot;
 import java.util.Map;
 
 public interface AddService {
-    Map<String, String> addBot(Map<String, String> bot);
+    Map<String, String> add(Map<String, String> bot);
 }

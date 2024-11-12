@@ -20,7 +20,7 @@ public class AddServiceImpl implements AddService {
     @Autowired
     private BotMapper botMapper;
     @Override
-    public Map<String, String> addBot(Map<String, String> bot) {
+    public Map<String, String> add(Map<String, String> bot) {
         UsernamePasswordAuthenticationToken authenticationToken =
                 (UsernamePasswordAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
         UserDetailsImpl loginUser = (UserDetailsImpl) authenticationToken.getPrincipal();
