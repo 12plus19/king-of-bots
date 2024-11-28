@@ -9,8 +9,8 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
-    <groupId>com.kob.matchingsystem</groupId>
-    <artifactId>matchingsystem</artifactId>
+    <groupId>com.kob.botrunningsystem</groupId>
+    <artifactId>botrunningsystem</artifactId>
 
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
@@ -41,6 +41,12 @@
             <version>1.18.34</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.jooq</groupId>
+            <artifactId>joor-java-8</artifactId>
+            <version>0.9.14</version>
+        </dependency>
     </dependencies>
+
 
 </project>
