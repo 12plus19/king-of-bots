@@ -39,7 +39,7 @@ public class WebSocketServer {
     private final String addPlayerUrl = "http://localhost:3001/player/add/";
     private final String removePlayerUrl = "http://localhost:3001/player/remove/";
 
-    private static UserMapper userMapper;
+    public static UserMapper userMapper;
     public static RecordMapper recordMapper;
     public static RestTemplate restTemplate;
     private static BotMapper botMapper;
@@ -163,6 +163,7 @@ public class WebSocketServer {
         }
 
     }
+    //先点的左下角后点的右上角
     private void startMatch(Integer botId){
         System.out.println("调试信息：开始匹配");
         MultiValueMap<String, String> data = new LinkedMultiValueMap<>();

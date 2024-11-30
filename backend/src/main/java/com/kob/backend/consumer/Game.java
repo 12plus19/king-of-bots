@@ -3,6 +3,7 @@ package com.kob.backend.consumer;
 import com.alibaba.fastjson.JSONObject;
 import com.kob.backend.pojo.Bot;
 import com.kob.backend.pojo.Record;
+import com.kob.backend.pojo.User;
 import lombok.Getter;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -151,7 +152,8 @@ public class Game extends Thread{
         data.add("userId", player.getId().toString());
         data.add("botCode", player.getBotCode());
         data.add("input", getInput(player));
-        WebSocketServer.restTemplate.postForObject(addBotUrl, data, String.class);
+        String resp = WebSocketServer.restTemplate.postForObject(addBotUrl, data, String.class);
+        System.out.println(resp);
     }
     private boolean nextStep(){    // 等待两名玩家下一步操作
         try{        //  前端蛇的移动比较慢，等前端
@@ -248,6 +250,18 @@ public class Game extends Thread{
     }
 
     private void saveRecordToDataBase(){
+        Integer aRating = WebSocketServer.userMapper.selectById(playerA.getId()).getRating();
+        Integer bRating = WebSocketServer.userMapper.selectById(playerB.getId()).getRating();
+        if("A".equals(loser)){
+            aRating -= 2;
+            bRating += 5;
+        } else if("B".equals(loser)){
+            aRating += 5;
+            bRating -= 2;
+        }
+        updateUserRating(playerA, aRating);
+        updateUserRating(playerB, bRating);
+
         Record record = new Record(
                 null,
                 playerA.getId(),
@@ -264,6 +278,13 @@ public class Game extends Thread{
         );
         WebSocketServer.recordMapper.insert(record);
     }
+
+    private void updateUserRating(Player player, Integer rating){
+        User user = WebSocketServer.userMapper.selectById(player.getId());
+        user.setRating(rating);
+        WebSocketServer.userMapper.updateById(user);
+    }
+
     @Override
     public void run() {
         try {
