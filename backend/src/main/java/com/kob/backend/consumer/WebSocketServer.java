@@ -1,8 +1,10 @@
 package com.kob.backend.consumer;
 
 import com.alibaba.fastjson.JSONObject;
+import com.kob.backend.mapper.BotMapper;
 import com.kob.backend.mapper.RecordMapper;
 import com.kob.backend.mapper.UserMapper;
+import com.kob.backend.pojo.Bot;
 import com.kob.backend.pojo.User;
 import com.kob.backend.utils.JwtUtil;
 import io.jsonwebtoken.Claims;
@@ -33,13 +35,14 @@ public class WebSocketServer {
 
     private User user = null;
     private Session session = null;
-    private Game game = null;
+    public Game game = null;
     private final String addPlayerUrl = "http://localhost:3001/player/add/";
     private final String removePlayerUrl = "http://localhost:3001/player/remove/";
 
     private static UserMapper userMapper;
     public static RecordMapper recordMapper;
-    private static RestTemplate restTemplate;
+    public static RestTemplate restTemplate;
+    private static BotMapper botMapper;
     @Autowired
     public void setUserMapper(UserMapper userMapper) {
         WebSocketServer.userMapper = userMapper;
@@ -51,6 +54,10 @@ public class WebSocketServer {
     @Autowired
     public void setRestTemplate(RestTemplate restTemplate) {
         WebSocketServer.restTemplate = restTemplate;
+    }
+    @Autowired
+    public void setBotMapper(BotMapper botMapper) {
+        WebSocketServer.botMapper = botMapper;
     }
 
     @OnOpen
@@ -88,7 +95,7 @@ public class WebSocketServer {
         String event = data.getString("event");
 
         if("start-match".equals(event)) {
-            startMatch();
+            startMatch(data.getInteger("bot_id"));
         } else if("stop-match".equals(event)) {
             stopMatch();
         } else if("move".equals(event)) {
@@ -100,18 +107,19 @@ public class WebSocketServer {
         error.printStackTrace();
     }
 
-
+    //在机器人对战时，人的输入不接收
     private void move(int d) {
         if(game.getPlayerA().getId().equals(user.getId())) {
-            game.setNextStepA(d);
+            if(game.getPlayerA().getBotId() == -1)game.setNextStepA(d);
         } else if(game.getPlayerB().getId().equals(user.getId())) {
-            game.setNextStepB(d);
+            if(game.getPlayerB().getBotId() == -1)game.setNextStepB(d);
         }
     }
-    public static void startGame(Integer aId, Integer bId) {
-        User a = userMapper.selectById(aId);
-        User b = userMapper.selectById(bId);
-        Game game = new Game(ROWS, COLS, INNER_WALLS_COUNT, a.getId(), b.getId());
+    public static void startGame(Integer aId, Integer aBotId, Integer bId, Integer bBotId) {
+        User a = userMapper.selectById(aId);User b = userMapper.selectById(bId);
+        Bot aBot = botMapper.selectById(aBotId);Bot bBot = botMapper.selectById(bBotId);
+
+        Game game = new Game(ROWS, COLS, INNER_WALLS_COUNT, a.getId(), aBot, b.getId(), bBot);
         game.createGameMap();
         if(users.get(a.getId()) != null){     //在玩家匹配时意外断开，但是玩家仍在匹配池中的情况，此时WebSocketServer是空，会空指针
             users.get(a.getId()).game = game;
@@ -155,11 +163,12 @@ public class WebSocketServer {
         }
 
     }
-    private void startMatch(){
+    private void startMatch(Integer botId){
         System.out.println("调试信息：开始匹配");
         MultiValueMap<String, String> data = new LinkedMultiValueMap<>();
         data.add("userId", user.getId().toString());
         data.add("rating", user.getRating().toString());
+        data.add("botId", botId.toString());
         String resp = restTemplate.postForObject(addPlayerUrl, data, String.class);
         System.out.println(resp);
 //        matchPool.add(user);
