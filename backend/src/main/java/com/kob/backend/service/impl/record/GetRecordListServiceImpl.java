@@ -23,7 +23,7 @@ public class GetRecordListServiceImpl implements GetRecordListService {
 
     @Override
     public JSONObject getRecordList(Integer pageNo) {
-        IPage<Record> recordIPage = new Page<>(pageNo, 10);
+        IPage<Record> recordIPage = new Page<>(pageNo, 20 );
         QueryWrapper<Record> queryWrapper = new QueryWrapper<>();
         queryWrapper.orderByDesc("id");
         List<Record> records = recordMapper.selectPage(recordIPage, queryWrapper).getRecords();
@@ -38,11 +38,16 @@ public class GetRecordListServiceImpl implements GetRecordListService {
             item.put("a_username", userA.getUsername());
             item.put("b_photo", userB.getPhoto());
             item.put("b_username", userB.getUsername());
+            String result = "平局";
+            if("A".equals(record.getLoser()))result = "B胜";
+            else if("B".equals(record.getLoser()))result = "A胜";
+            item.put("result", result);
             item.put("record", record);
             items.add(item);
         }
+
         resp.put("records", items);
-        resp.put("total", recordIPage.getTotal());
+        resp.put("total", recordIPage.getTotal());  // 一共多少条
 
         return resp;
     }
