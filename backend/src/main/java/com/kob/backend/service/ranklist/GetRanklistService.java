@@ -3,5 +3,5 @@ package com.kob.backend.service.ranklist;
 import com.alibaba.fastjson.JSONObject;
 
 public interface GetRanklistService {
-    JSONObject GetRanklist(Integer pageNo);
+    JSONObject getRanklist(Integer pageNo);
 }
