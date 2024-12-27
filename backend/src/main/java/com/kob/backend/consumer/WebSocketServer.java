@@ -1,12 +1,24 @@
 package com.kob.backend.consumer;
 
 import com.alibaba.fastjson.JSONObject;
+import com.kob.backend.consumer.handler.DirectionAdapter;
+import com.kob.backend.consumer.handler.MessageHandler;
+import com.kob.backend.consumer.handler.MoveHandler;
+import com.kob.backend.consumer.handler.StartMatchHandler;
+import com.kob.backend.consumer.handler.StopMatchHandler;
+import com.kob.backend.consumer.handler.UserDirectionAdapter;
 import com.kob.backend.mapper.BotMapper;
 import com.kob.backend.mapper.RecordMapper;
 import com.kob.backend.mapper.UserMapper;
 import com.kob.backend.pojo.Bot;
 import com.kob.backend.pojo.User;
 import com.kob.backend.utils.JwtUtil;
+import com.mysql.cj.x.protobuf.MysqlxCrud.Order.Direction;
+
+// //zk修改：Adapter引入
+// import com.kob.backend.service.design_pattern.adapter.DirectionAdapter;
+// import com.kob.backend.service.design_pattern.adapter.UserDirectionAdapter;
+
 import io.jsonwebtoken.Claims;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -18,7 +30,9 @@ import javax.websocket.*;
 import javax.websocket.server.PathParam;
 import javax.websocket.server.ServerEndpoint;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
@@ -27,6 +41,16 @@ import static com.kob.backend.constants.Constants.*;
 @Component
 @ServerEndpoint("/websocket/{token}")  // 注意不要以'/'结尾
 public class WebSocketServer {
+
+    //zk修改：定义字典对应操作
+    private Map<String, MessageHandler> handlers = new HashMap<>();
+    private DirectionAdapter directionAdapter = new UserDirectionAdapter();
+
+    public WebSocketServer() {
+        handlers.put("start-match", new StartMatchHandler(this));
+        handlers.put("stop-match", new StopMatchHandler(this));
+        handlers.put("move", new MoveHandler(this, directionAdapter));
+    }
 
     //线程安全的静态变量存储客户端id和websockeserver的对应关系
     final public static ConcurrentHashMap<Integer, WebSocketServer> users = new ConcurrentHashMap<>();
@@ -43,6 +67,7 @@ public class WebSocketServer {
     public static RecordMapper recordMapper;
     public static RestTemplate restTemplate;
     private static BotMapper botMapper;
+
     @Autowired
     public void setUserMapper(UserMapper userMapper) {
         WebSocketServer.userMapper = userMapper;
@@ -94,13 +119,19 @@ public class WebSocketServer {
         JSONObject data = JSONObject.parseObject(message);
         String event = data.getString("event");
 
-        if("start-match".equals(event)) {
-            startMatch(data.getInteger("bot_id"));
-        } else if("stop-match".equals(event)) {
-            stopMatch();
-        } else if("move".equals(event)) {
-            move(data.getInteger("d"));
+        // zk修改：bridge模式，根据字典映射操作
+        MessageHandler handler = handlers.get(event);
+        if(handler != null) {
+            handler.handle(data);
         }
+        // if("start-match".equals(event)) {
+        //     startMatch(data.getInteger("bot_id"));
+        // } else if("stop-match".equals(event)) {
+        //     stopMatch();
+        // } else if("move".equals(event)) {
+
+        //     move(data.getInteger("d"));
+        // }
     }
     @OnError
     public void onError(Session session, Throwable error) {
@@ -108,7 +139,7 @@ public class WebSocketServer {
     }
 
     //在机器人对战时，人的输入不接收
-    private void move(int d) {
+    public void move(int d) {
         if(game.getPlayerA().getId().equals(user.getId())) {
             if(game.getPlayerA().getBotId() == -1)game.setNextStepA(d);
         } else if(game.getPlayerB().getId().equals(user.getId())) {
@@ -163,32 +194,32 @@ public class WebSocketServer {
         }
 
     }
-    //先点的左下角后点的右上角
-    private void startMatch(Integer botId){
-        System.out.println("调试信息：开始匹配");
-        MultiValueMap<String, String> data = new LinkedMultiValueMap<>();
-        data.add("userId", user.getId().toString());
-        data.add("rating", user.getRating().toString());
-        data.add("botId", botId.toString());
-        String resp = restTemplate.postForObject(addPlayerUrl, data, String.class);
-        System.out.println(resp);
-//        matchPool.add(user);
-//        while(matchPool.size() >= 2){
-//            Iterator<User> iterator = matchPool.iterator();     //  先进去的是a，左下
-//            User a = iterator.next(), b = iterator.next();
-//            matchPool.remove(a);
-//            matchPool.remove(b);
-//
-//
-//        }
-    }
-    private void stopMatch(){
-        System.out.println("调试信息：停止匹配");
-        MultiValueMap<String, String> data = new LinkedMultiValueMap<>();
-        data.add("userId", user.getId().toString());
-        restTemplate.postForObject(removePlayerUrl, data, String.class);
-        //matchPool.remove(user);
-    }
+//     //先点的左下角后点的右上角
+//     private void startMatch(Integer botId){
+//         System.out.println("调试信息：开始匹配");
+//         MultiValueMap<String, String> data = new LinkedMultiValueMap<>();
+//         data.add("userId", user.getId().toString());
+//         data.add("rating", user.getRating().toString());
+//         data.add("botId", botId.toString());
+//         String resp = restTemplate.postForObject(addPlayerUrl, data, String.class);
+//         System.out.println(resp);
+// //        matchPool.add(user);
+// //        while(matchPool.size() >= 2){
+// //            Iterator<User> iterator = matchPool.iterator();     //  先进去的是a，左下
+// //            User a = iterator.next(), b = iterator.next();
+// //            matchPool.remove(a);
+// //            matchPool.remove(b);
+// //
+// //
+// //        }
+//     }
+    // private void stopMatch(){
+    //     System.out.println("调试信息：停止匹配");
+    //     MultiValueMap<String, String> data = new LinkedMultiValueMap<>();
+    //     data.add("userId", user.getId().toString());
+    //     restTemplate.postForObject(removePlayerUrl, data, String.class);
+    //     //matchPool.remove(user);
+    // }
     public void sendMessage(String message) {     //  服务器端向客户端发送
         synchronized (session) {
             try{
@@ -197,5 +228,21 @@ public class WebSocketServer {
                 e.printStackTrace();
             }
         }
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public String getAddPlayerUrl() {
+        return addPlayerUrl;
+    }
+
+    public String getRemovePlayerUrl() {
+        return removePlayerUrl;
+    }
+
+    public RestTemplate getRestTemplate() {
+        return restTemplate;
     }
 }
